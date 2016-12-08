@@ -47,6 +47,7 @@ import org.springframework.web.method.HandlerMethod;
  */
 public class InvocableHandlerMethod extends HandlerMethod {
 
+	//解析参数时会用到
 	private WebDataBinderFactory dataBinderFactory;
 
 	private HandlerMethodArgumentResolverComposite argumentResolvers = new HandlerMethodArgumentResolverComposite();

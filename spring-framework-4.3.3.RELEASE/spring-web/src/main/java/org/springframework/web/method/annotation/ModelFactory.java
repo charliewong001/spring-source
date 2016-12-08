@@ -103,9 +103,11 @@ public final class ModelFactory {
 	 */
 	public void initModel(NativeWebRequest request, ModelAndViewContainer container,
 			HandlerMethod handlerMethod) throws Exception {
-
+		//从knownAttributeNames中获取参数
 		Map<String, ?> sessionAttributes = this.sessionAttributesHandler.retrieveAttributes(request);
+		//若ModelAndViewContainer中不包含参数,则保存到ModelAndViewContainer
 		container.mergeAttributes(sessionAttributes);
+		//将注释了@ModelAttribute的参数添加到ModelAndViewContainer中
 		invokeModelAttributeMethods(request, container);
 
 		for (String name : findSessionAttributeArguments(handlerMethod)) {
@@ -122,6 +124,7 @@ public final class ModelFactory {
 	/**
 	 * Invoke model attribute methods to populate the model.
 	 * Attributes are added only if not already present in the model.
+	 * 将注释了@ModelAttribute的参数添加到ModelAndViewContainer中
 	 */
 	private void invokeModelAttributeMethods(NativeWebRequest request, ModelAndViewContainer container)
 			throws Exception {

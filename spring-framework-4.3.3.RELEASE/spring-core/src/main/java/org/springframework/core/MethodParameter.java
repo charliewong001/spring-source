@@ -65,7 +65,7 @@ public class MethodParameter {
 
 	private final Method method;
 
-	private final Constructor<?> constructor;
+	private final Constructor<?> constructor;//构造方法
 
 	private final int parameterIndex;
 
@@ -74,13 +74,13 @@ public class MethodParameter {
 	/** Map from Integer level to Integer type index */
 	Map<Integer, Integer> typeIndexesPerLevel;
 
-	private volatile Class<?> containingClass;
+	private volatile Class<?> containingClass;//此参数所在构造方法的类
 
 	private volatile Class<?> parameterType;
 
 	private volatile Type genericParameterType;
 
-	private volatile Annotation[] parameterAnnotations;
+	private volatile Annotation[] parameterAnnotations;//此参数上包含的注解
 
 	private volatile ParameterNameDiscoverer parameterNameDiscoverer;
 

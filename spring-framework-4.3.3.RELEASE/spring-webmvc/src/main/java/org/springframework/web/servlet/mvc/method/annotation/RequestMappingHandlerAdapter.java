@@ -512,14 +512,17 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 		// Do this first, it may add ResponseBody advice beans
 		initControllerAdviceCache();
 
+		//初始化参数解析器
 		if (this.argumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultArgumentResolvers();
 			this.argumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+		//初始化解析initBinder解析器
 		if (this.initBinderArgumentResolvers == null) {
 			List<HandlerMethodArgumentResolver> resolvers = getDefaultInitBinderArgumentResolvers();
 			this.initBinderArgumentResolvers = new HandlerMethodArgumentResolverComposite().addResolvers(resolvers);
 		}
+		//初始化返回值处理器
 		if (this.returnValueHandlers == null) {
 			List<HandlerMethodReturnValueHandler> handlers = getDefaultReturnValueHandlers();
 			this.returnValueHandlers = new HandlerMethodReturnValueHandlerComposite().addHandlers(handlers);
@@ -534,12 +537,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 			logger.info("Looking for @ControllerAdvice: " + getApplicationContext());
 		}
 
+		//查找注释了@ControllerAdvice的bean
 		List<ControllerAdviceBean> beans = ControllerAdviceBean.findAnnotatedBeans(getApplicationContext());
 		AnnotationAwareOrderComparator.sort(beans);
 
 		List<Object> requestResponseBodyAdviceBeans = new ArrayList<Object>();
 
 		for (ControllerAdviceBean bean : beans) {
+			//查找注释了@ModelAttribute并且未注释@RequestMapping的method
 			Set<Method> attrMethods = MethodIntrospector.selectMethods(bean.getBeanType(), MODEL_ATTRIBUTE_METHODS);
 			if (!attrMethods.isEmpty()) {
 				this.modelAttributeAdviceCache.put(bean, attrMethods);
@@ -547,6 +552,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 					logger.info("Detected @ModelAttribute methods in " + bean);
 				}
 			}
+			//查找注释了@InitBinder的method
 			Set<Method> binderMethods = MethodIntrospector.selectMethods(bean.getBeanType(), INIT_BINDER_METHODS);
 			if (!binderMethods.isEmpty()) {
 				this.initBinderAdviceCache.put(bean, binderMethods);
@@ -554,12 +560,14 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 					logger.info("Detected @InitBinder methods in " + bean);
 				}
 			}
+			//判断bean是否实现了RequestBodyAdvice接口
 			if (RequestBodyAdvice.class.isAssignableFrom(bean.getBeanType())) {
 				requestResponseBodyAdviceBeans.add(bean);
 				if (logger.isInfoEnabled()) {
 					logger.info("Detected RequestBodyAdvice bean in " + bean);
 				}
 			}
+			//判断bean是否实现了ResponseBodyAdvice接口
 			if (ResponseBodyAdvice.class.isAssignableFrom(bean.getBeanType())) {
 				requestResponseBodyAdviceBeans.add(bean);
 				if (logger.isInfoEnabled()) {
@@ -791,17 +799,23 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 
 		ServletWebRequest webRequest = new ServletWebRequest(request, response);
 		try {
+			//WebDataBinderFactory处理注释了@InitBinder的方法
 			WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);
+			//ModelFactory处理注释了@ModelAttribute的方法
 			ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);
 
+			/**
+			 * ServletInvocableHandlerMethod
+			 * 用于执行请求，处理返回结果
+			 */
 			ServletInvocableHandlerMethod invocableMethod = createInvocableHandlerMethod(handlerMethod);
 			invocableMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);
 			invocableMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);
-			invocableMethod.setDataBinderFactory(binderFactory);
+			invocableMethod.setDataBinderFactory(binderFactory);//设置binderFactory,在解析参数时会用到
 			invocableMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);
 
 			ModelAndViewContainer mavContainer = new ModelAndViewContainer();
-			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));
+			mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));//redirect转发参数
 			modelFactory.initModel(webRequest, mavContainer, invocableMethod);
 			mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);
 
@@ -849,13 +863,16 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 	private ModelFactory getModelFactory(HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {
 		SessionAttributesHandler sessionAttrHandler = getSessionAttributesHandler(handlerMethod);
 		Class<?> handlerType = handlerMethod.getBeanType();
+		//首先从缓存中获取当前bean中注释了@ModelAttribute的方法
 		Set<Method> methods = this.modelAttributeCache.get(handlerType);
 		if (methods == null) {
+			//若缓存中没有,则从当前bean中查找
 			methods = MethodIntrospector.selectMethods(handlerType, MODEL_ATTRIBUTE_METHODS);
 			this.modelAttributeCache.put(handlerType, methods);
 		}
 		List<InvocableHandlerMethod> attrMethods = new ArrayList<InvocableHandlerMethod>();
 		// Global methods first
+		//查找并添加全局的注释了@ModelAttribute的方法
 		for (Entry<ControllerAdviceBean, Set<Method>> entry : this.modelAttributeAdviceCache.entrySet()) {
 			if (entry.getKey().isApplicableToBeanType(handlerType)) {
 				Object bean = entry.getKey().resolveBean();
@@ -864,6 +881,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 				}
 			}
 		}
+		//添加bean独有的注释了@ModelAttribute的方法
 		for (Method method : methods) {
 			Object bean = handlerMethod.getBean();
 			attrMethods.add(createModelAttributeMethod(binderFactory, bean, method));
@@ -881,13 +899,16 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 
 	private WebDataBinderFactory getDataBinderFactory(HandlerMethod handlerMethod) throws Exception {
 		Class<?> handlerType = handlerMethod.getBeanType();
+		//从本地缓存中获取当前bean中注释了@InitBinder的方法
 		Set<Method> methods = this.initBinderCache.get(handlerType);
 		if (methods == null) {
+			//查找当前bean中注释了@InitBinder的方法
 			methods = MethodIntrospector.selectMethods(handlerType, INIT_BINDER_METHODS);
 			this.initBinderCache.put(handlerType, methods);
 		}
 		List<InvocableHandlerMethod> initBinderMethods = new ArrayList<InvocableHandlerMethod>();
 		// Global methods first
+		//添加全局的(即注释了@ControllerAdvice的)注释了@InitBinder的方法
 		for (Entry<ControllerAdviceBean, Set<Method>> entry : this.initBinderAdviceCache.entrySet()) {
 			if (entry.getKey().isApplicableToBeanType(handlerType)) {
 				Object bean = entry.getKey().resolveBean();
@@ -896,6 +917,7 @@ public class RequestMappingHandlerAdapter extends AbstractHandlerMethodAdapter
 				}
 			}
 		}
+		//添加bean独有的注释了@InitBinder的方法
 		for (Method method : methods) {
 			Object bean = handlerMethod.getBean();
 			initBinderMethods.add(createInitBinderMethod(bean, method));

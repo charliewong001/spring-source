@@ -221,6 +221,8 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 	/**
 	 * Derive further bean definitions from the configuration classes in the registry.
+	 * 注解方式扫描注册beanDefinition
+	 * @param registry applicationContext
 	 */
 	@Override
 	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) {
@@ -272,16 +274,37 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 */
 	public void processConfigBeanDefinitions(BeanDefinitionRegistry registry) {
 		List<BeanDefinitionHolder> configCandidates = new ArrayList<BeanDefinitionHolder>();
+		/**
+		 * 获取已经注册了的beanDefinition
+		 * 在实例化DefaultListableBeanFactory的过程中,
+		 * 在创建AnnotatedBeanDefinitionReader时通过
+		 * AnnotationConfigUtils.registerAnnotationConfigProcessors
+		 * 会注册一些bean
+		 * [org.springframework.context.annotation.internalConfigurationAnnotationProcessor, 
+			org.springframework.context.annotation.internalAutowiredAnnotationProcessor, 
+			org.springframework.context.annotation.internalRequiredAnnotationProcessor, 
+			org.springframework.context.annotation.internalCommonAnnotationProcessor, 
+			org.springframework.context.event.internalEventListenerProcessor, 
+			org.springframework.context.event.internalEventListenerFactory, 
+			
+			billAnalyzeApplication, 
+			org.springframework.boot.autoconfigure.internalCachingMetadataReaderFactory]
+			
+			其中billAnalyzeApplication是springboot框架将启动类注册进去
+		 */
 		String[] candidateNames = registry.getBeanDefinitionNames();
 
 		for (String beanName : candidateNames) {
 			BeanDefinition beanDef = registry.getBeanDefinition(beanName);
+			//判断beanDefinition中是否有full和lite的相关属性
 			if (ConfigurationClassUtils.isFullConfigurationClass(beanDef) ||
 					ConfigurationClassUtils.isLiteConfigurationClass(beanDef)) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("Bean definition has already been processed as a configuration class: " + beanDef);
 				}
 			}
+			//bean是否注解了@Configuration或者是否含有注解了@Bean的方法
+			//若是，则在bean中添加好 full和lite属性
 			else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
 				configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
 			}
@@ -293,6 +316,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		}
 
 		// Sort by previously determined @Order value, if applicable
+		//若添加了@Order注解,则根据此进行排序
 		Collections.sort(configCandidates, new Comparator<BeanDefinitionHolder>() {
 			@Override
 			public int compare(BeanDefinitionHolder bd1, BeanDefinitionHolder bd2) {
@@ -321,6 +345,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		Set<BeanDefinitionHolder> candidates = new LinkedHashSet<BeanDefinitionHolder>(configCandidates);
 		Set<ConfigurationClass> alreadyParsed = new HashSet<ConfigurationClass>(configCandidates.size());
 		do {
+			//解析 @Configuration class
 			parser.parse(candidates);
 			parser.validate();
 

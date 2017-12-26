@@ -77,6 +77,7 @@ class ComponentScanAnnotationParser {
 		Assert.state(this.environment != null, "Environment must not be null");
 		Assert.state(this.resourceLoader != null, "ResourceLoader must not be null");
 
+		//生成class文件扫描器,并为扫描器设置@ComponentScan上配置的属性
 		ClassPathBeanDefinitionScanner scanner =
 				new ClassPathBeanDefinitionScanner(this.registry, componentScan.getBoolean("useDefaultFilters"));
 		scanner.setEnvironment(this.environment);
@@ -125,6 +126,7 @@ class ComponentScanAnnotationParser {
 			basePackages.add(ClassUtils.getPackageName(clazz));
 		}
 		if (basePackages.isEmpty()) {
+			//若basePackages是空,则获取当前类所在的包为basePackages
 			basePackages.add(ClassUtils.getPackageName(declaringClass));
 		}
 
